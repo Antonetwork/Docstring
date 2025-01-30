@@ -3,8 +3,7 @@ pipeline {
 
     environment {
         PYTHON_ENV = 'venv'
-        DOCSTRING_REPORT = 'C:\\Jenkins\\workspace\\workspace\\Docstrings\\docstring_report.json'  // Chemin du rapport
-        SLAVE_REPORT_DIR = 'C:\\Jenkins\\workspace\\workspace\\TESTPython CICD' // Répertoire sur le slave où sauvegarder le rapport
+        PYTHON_FILES_DIR = '.'  // Répertoire contenant les fichiers Python
     }
 
     stages {
@@ -26,11 +25,10 @@ pipeline {
         stage('Add Docstrings') {
             steps {
                 script {
-                    // Créer un code Python valide pour ajouter des docstrings
+                    // Créer le fichier add_docstrings.py avec le code Python
                     def code = '''
 import ast
 import os
-import json
 
 def add_docstrings(file_path):
     with open(file_path, 'r') as file:
@@ -50,21 +48,14 @@ def add_docstrings(file_path):
     
     return modified_functions
 
-def generate_report():
-    report = {}
-    directory = '.'
+def add_docstrings_to_files(directory):
     for filename in os.listdir(directory):
         if filename.endswith('.py'):
             file_path = os.path.join(directory, filename)
-            modified_functions = add_docstrings(file_path)
-            if modified_functions:
-                report[filename] = modified_functions
-    
-    with open('docstring_report.json', 'w') as report_file:
-        json.dump(report, report_file, indent=4)
+            add_docstrings(file_path)
 
 if __name__ == "__main__":
-    generate_report()
+    add_docstrings_to_files('.')
                     '''
 
                     // Créer le fichier add_docstrings.py avec ce code
@@ -76,20 +67,11 @@ if __name__ == "__main__":
             }
         }
 
-        stage('Generate and Archive Docstring Report') {
+        stage('Transfer Python Files to Slave') {
             steps {
                 script {
-                    // Vérifier que le fichier du rapport existe
-                    if (fileExists(DOCSTRING_REPORT)) {
-                        // Archiver le fichier docstring_report.json dans Jenkins
-                        archiveArtifacts allowEmptyArchive: true, artifacts: DOCSTRING_REPORT
-
-                        // Copier le rapport vers le répertoire du slave
-                        bat "copy %DOCSTRING_REPORT% %SLAVE_REPORT_DIR%\\docstring_report.json"
-                    } else {
-                        // Si le rapport n'existe pas, afficher une erreur
-                        error "Le fichier docstring_report.json n'a pas été trouvé."
-                    }
+                    // Copier tous les fichiers Python modifiés dans le répertoire du slave
+                    bat 'xcopy /E /I /Y *.py "C:\\Jenkins\\workspace\\workspace\\TESTPython CICD\\"'
                 }
             }
         }
@@ -97,7 +79,7 @@ if __name__ == "__main__":
 
     post {
         always {
-            echo "Le rapport des docstrings est disponible dans Jenkins et sur le slave."
+            echo "Les fichiers Python modifiés ont été transférés au slave."
         }
     }
 }
