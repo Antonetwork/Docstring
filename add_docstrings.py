@@ -1,32 +1,40 @@
 import ast
 import os
+import json
 
-def add_docstrings_to_file(file_path):
+def add_docstrings(file_path):
+    """Ajoute des docstrings aux fonctions qui n'en ont pas."""
     with open(file_path, 'r') as file:
-        code = file.read()
-
-    tree = ast.parse(code)
-    modified_code = code
-
+        tree = ast.parse(file.read())
+    
+    modified_functions = []
+    
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef):
-            if ast.get_docstring(node) is None:
-                # Ajouter un docstring si aucune n'existe
-                docstring = f'"""Docstring for function {node.name}."""\n'
-                modified_code = modified_code.replace(
-                    f"def {node.name}(", f"def {node.name}({docstring}("
-                )
+            if not ast.get_docstring(node):
+                docstring = f'\"\"\"Function {node.name} description.\"\"\"'
+                node.body.insert(0, ast.Expr(value=ast.Constant(value=docstring)))
+                modified_functions.append(node.name)
+    
+    with open(file_path, 'w') as file:
+        file.write(ast.unparse(tree))
+    
+    return modified_functions
 
-    if modified_code != code:
-        with open(file_path, 'w') as file:
-            file.write(modified_code)
-
-def add_docstrings_to_directory(directory):
+def generate_report():
+    """Génère un rapport JSON des fichiers modifiés."""
+    report = {}
+    directory = '.'
     for filename in os.listdir(directory):
         if filename.endswith('.py'):
             file_path = os.path.join(directory, filename)
-            add_docstrings_to_file(file_path)
+            modified_functions = add_docstrings(file_path)
+            if modified_functions:
+                report[filename] = modified_functions
+    
+    # Enregistrer le rapport dans un fichier JSON
+    with open('docstring_report.json', 'w') as report_file:
+        json.dump(report, report_file, indent=4)
 
-# Usage : Ajouter des docstrings à tous les fichiers Python dans un répertoire
-directory = 'C:/Jenkins/workspace/workspace/Docstrings/local_copy'  # répertoire local
-add_docstrings_to_directory(directory)
+if __name__ == "__main__":
+    generate_report()
