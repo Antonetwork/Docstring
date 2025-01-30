@@ -1,0 +1,35 @@
+import ast
+import os
+
+def add_docstrings_to_functions(file_path):
+    """Ajoute un docstring de base à chaque fonction du fichier Python."""
+    with open(file_path, 'r') as file:
+        code = file.read()
+    
+    tree = ast.parse(code)
+    
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef):
+            # Créer un docstring basique en fonction du nom de la fonction
+            docstring = f'"""Function to perform {node.name} operation."""'
+            if not node.body or not isinstance(node.body[0], ast.Expr) or not isinstance(node.body[0].value, ast.Str):
+                # Si la fonction n'a pas de docstring, on en ajoute un
+                node.body.insert(0, ast.Expr(value=ast.Str(s=docstring)))
+    
+    # Reconvertir l'arbre AST modifié en code Python
+    modified_code = ast.unparse(tree)
+    
+    with open(file_path, 'w') as file:
+        file.write(modified_code)
+
+def process_directory(directory):
+    """Parcourt tous les fichiers Python dans le répertoire donné et ajoute des docstrings."""
+    for filename in os.listdir(directory):
+        if filename.endswith('.py'):
+            file_path = os.path.join(directory, filename)
+            add_docstrings_to_functions(file_path)
+            print(f"Added docstrings to {file_path}")
+
+# Exemple d'utilisation : Ajout de docstrings dans tout le répertoire courant
+if __name__ == "__main__":
+    process_directory('./')  # Change cette ligne selon le répertoire de ton code
