@@ -17,7 +17,6 @@ pipeline {
         stage('Setup Python Environment') {
             steps {
                 script {
-                    // Créer un environnement virtuel et installer les dépendances
                     bat 'python -m venv %PYTHON_ENV%'
                     bat '%PYTHON_ENV%\\Scripts\\pip install -r requirements.txt'
                 }
@@ -27,10 +26,36 @@ pipeline {
         stage('Add Docstrings') {
             steps {
                 script {
-                    // Créer le script add_docstrings.py qui ajoute des docstrings
-                    writeFile file: 'add_docstrings.py', text: '''<code Python ci-dessus>'''
+                    // Créer un code Python valide pour ajouter des docstrings
+                    def code = '''
+import ast
+import os
 
-                    // Exécuter le script pour ajouter les docstrings
+def add_docstrings(file_path):
+    with open(file_path, 'r') as file:
+        tree = ast.parse(file.read())
+    
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef):
+            if not ast.get_docstring(node):
+                docstring = f'\"\"\"Function {node.name} description.\"\"\"'
+                node.body.insert(0, ast.Expr(value=ast.Str(s=docstring)))
+    
+    with open(file_path, 'w') as file:
+        file.write(ast.unparse(tree))
+
+if __name__ == "__main__":
+    directory = '.'
+    for filename in os.listdir(directory):
+        if filename.endswith('.py'):
+            file_path = os.path.join(directory, filename)
+            add_docstrings(file_path)
+                    '''
+
+                    // Créer le fichier add_docstrings.py avec ce code
+                    writeFile file: 'add_docstrings.py', text: code
+
+                    // Exécuter le script Python
                     bat '%PYTHON_ENV%\\Scripts\\python add_docstrings.py'
                 }
             }
