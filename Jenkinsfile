@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         PYTHON_ENV = 'venv'  // Nom de l'environnement virtuel Python
-        DOCSTRING_REPORT = 'C:\\Jenkins\\workspace\\docstring_report.json'  // Répertoire sur le slave pour le rapport des docstrings
+        DOCSTRING_REPORT = 'C:\\Jenkins\\workspace\\workspace\\Docstrings\\docstring_report.json'  // Répertoire sur le slave pour le rapport des docstrings
     }
 
     stages {
@@ -27,9 +27,8 @@ pipeline {
         stage('Add Docstrings') {
             steps {
                 script {
-                    // Exécuter le script Python pour ajouter les docstrings
-                    bat '''
-                    python -c "
+                    // Créer un fichier Python séparé pour ajouter les docstrings
+                    writeFile file: 'add_docstrings.py', text: '''
 import ast
 import os
 import json
@@ -68,8 +67,10 @@ modifications = process_directory('.')
 
 with open('%DOCSTRING_REPORT%', 'w') as report_file:
     json.dump(modifications, report_file, indent=4)
-                    "
                     '''
+                    
+                    // Exécuter le fichier Python qui ajoute les docstrings
+                    bat '%PYTHON_ENV%\\Scripts\\python add_docstrings.py'
                 }
             }
         }
