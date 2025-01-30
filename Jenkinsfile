@@ -1,24 +1,22 @@
 pipeline {
-    agent { label 'windowsSlave' }  // Utilisation du slave Windows
+    agent { label 'windowsSlave' }
 
     environment {
-        PYTHON_ENV = 'venv'  // Nom de l'environnement virtuel Python
-        DOCSTRING_REPORT = 'C:\\Jenkins\\workspace\\workspace\\Docstrings\\docstring_report.json'  // Répertoire sur le slave pour le rapport des docstrings
+        PYTHON_ENV = 'venv'
+        DOCSTRING_REPORT = 'C:\\Jenkins\\workspace\\workspace\\Docstrings\\docstring_report.json'  // Chemin du rapport
     }
 
     stages {
         stage('Checkout') {
             steps {
-                checkout scm  // Récupérer le code depuis GitHub
+                checkout scm
             }
         }
 
         stage('Setup Python Environment') {
             steps {
                 script {
-                    // Créer un environnement virtuel Python
                     bat 'python -m venv %PYTHON_ENV%'
-                    // Installer les dépendances si elles sont présentes dans requirements.txt
                     bat '%PYTHON_ENV%\\Scripts\\pip install -r requirements.txt'
                 }
             }
@@ -27,49 +25,7 @@ pipeline {
         stage('Add Docstrings') {
             steps {
                 script {
-                    // Créer un fichier Python séparé pour ajouter les docstrings
-                    writeFile file: 'add_docstrings.py', text: '''
-import ast
-import os
-import json
-
-def add_docstrings_to_functions(file_path):
-    with open(file_path, 'r') as file:
-        code = file.read()
-    
-    tree = ast.parse(code)
-    modifications = []
-    
-    for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef):
-            docstring = f'\"\"\"Function to perform {node.name} operation.\"\"\"'
-            if not node.body or not isinstance(node.body[0], ast.Expr) or not isinstance(node.body[0].value, ast.Str):
-                node.body.insert(0, ast.Expr(value=ast.Str(s=docstring)))
-                modifications.append({'file': file_path, 'line': node.lineno, 'function': node.name, 'docstring': docstring})
-    
-    modified_code = ast.unparse(tree)
-    
-    with open(file_path, 'w') as file:
-        file.write(modified_code)
-
-    return modifications
-
-def process_directory(directory):
-    all_modifications = []
-    for filename in os.listdir(directory):
-        if filename.endswith('.py'):
-            file_path = os.path.join(directory, filename)
-            modifications = add_docstrings_to_functions(file_path)
-            all_modifications.extend(modifications)
-    return all_modifications
-
-modifications = process_directory('.')
-
-with open('%DOCSTRING_REPORT%', 'w') as report_file:
-    json.dump(modifications, report_file, indent=4)
-                    '''
-                    
-                    // Exécuter le fichier Python qui ajoute les docstrings
+                    writeFile file: 'add_docstrings.py', text: '''<code Python ci-dessus>'''
                     bat '%PYTHON_ENV%\\Scripts\\python add_docstrings.py'
                 }
             }
@@ -77,16 +33,25 @@ with open('%DOCSTRING_REPORT%', 'w') as report_file:
 
         stage('Archive Docstring Report') {
             steps {
-                // Archiver le rapport des docstrings dans Jenkins
-                archiveArtifacts allowEmptyArchive: true, artifacts: '%DOCSTRING_REPORT%'
+                script {
+                    if (fileExists(DOCSTRING_REPORT)) {
+                        archiveArtifacts allowEmptyArchive: true, artifacts: DOCSTRING_REPORT
+                    } else {
+                        error "Le fichier docstring_report.json n'a pas été trouvé."
+                    }
+                }
             }
         }
 
         stage('Move Report to Slave Directory') {
             steps {
                 script {
-                    // Copier le rapport dans un dossier sur le slave
-                    bat 'copy %DOCSTRING_REPORT% C:\\Jenkins\\workspace\\workspace\\TESTPython CICD\\docstring_report.json'
+                    // Vérifier que le fichier existe avant de tenter de le déplacer
+                    if (fileExists(DOCSTRING_REPORT)) {
+                        bat "copy %DOCSTRING_REPORT% C:\\Jenkins\\workspace\\workspace\\TESTPython CICD\\docstring_report.json"
+                    } else {
+                        error "Le fichier docstring_report.json n'a pas été trouvé pour le déplacer."
+                    }
                 }
             }
         }
