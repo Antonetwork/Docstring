@@ -1,35 +1,45 @@
 import ast
 import os
+import json
 
 def add_docstrings_to_functions(file_path):
-    """Ajoute un docstring de base à chaque fonction du fichier Python."""
     with open(file_path, 'r') as file:
         code = file.read()
     
     tree = ast.parse(code)
+    modifications = []
     
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef):
-            # Créer un docstring basique en fonction du nom de la fonction
             docstring = f'"""Function to perform {node.name} operation."""'
-            if not node.body or not isinstance(node.body[0], ast.Expr) or not isinstance(node.body[0].value, ast.Str):
-                # Si la fonction n'a pas de docstring, on en ajoute un
-                node.body.insert(0, ast.Expr(value=ast.Str(s=docstring)))
+            # Utiliser ast.Constant pour éviter le warning
+            if not node.body or not isinstance(node.body[0], ast.Expr) or not isinstance(node.body[0].value, ast.Constant):
+                node.body.insert(0, ast.Expr(value=ast.Constant(value=docstring)))
+                modifications.append({'file': file_path, 'line': node.lineno, 'function': node.name, 'docstring': docstring})
     
-    # Reconvertir l'arbre AST modifié en code Python
     modified_code = ast.unparse(tree)
     
     with open(file_path, 'w') as file:
         file.write(modified_code)
 
+    return modifications
+
 def process_directory(directory):
-    """Parcourt tous les fichiers Python dans le répertoire donné et ajoute des docstrings."""
+    all_modifications = []
     for filename in os.listdir(directory):
         if filename.endswith('.py'):
             file_path = os.path.join(directory, filename)
-            add_docstrings_to_functions(file_path)
-            print(f"Added docstrings to {file_path}")
+            modifications = add_docstrings_to_functions(file_path)
+            all_modifications.extend(modifications)
+    return all_modifications
 
-# Exemple d'utilisation : Ajout de docstrings dans tout le répertoire courant
-if __name__ == "__main__":
-    process_directory('./')  # Change cette ligne selon le répertoire de ton code
+# Dossier à parcourir
+directory = '.'
+
+# Générer les modifications
+modifications = process_directory(directory)
+
+# Sauvegarder le rapport dans un fichier JSON
+report_path = 'docstring_report.json'
+with open(report_path, 'w') as report_file:
+    json.dump(modifications, report_file, indent=4)
