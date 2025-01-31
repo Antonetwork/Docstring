@@ -1,5 +1,5 @@
 pipeline {
-    agent { label 'windowsSlave' }
+    agent { label 'Slave1' }
 
     environment {
         PYTHON_ENV = 'venv'
